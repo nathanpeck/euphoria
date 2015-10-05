@@ -8,6 +8,8 @@ Contents include:
 and a cute implementation of [RLE sprites](https://www.allegro.cc/manual/4/api/rle-sprites/) (which I thought I had invented at the time).
 A blast of [320x200 goodness](https://en.wikipedia.org/wiki/Mode_13h) from the past.
 
+* A few copies of the [VESA BIOS Extension documentation](Compression/Vbe20.txt) which was basically my goto handbook for all sorts of low level graphics goodness.
+
 * A platformer [game](/Escapade), written using the graphics engine. It ran in mode 19. The code for this game
 is horrific, but the most interesting thing about it is an [algorithm](/Escapade/g.e) that can analyze user generated platformer
 maps and then generate new platformer maps based on the samples.
