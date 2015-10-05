@@ -15,7 +15,7 @@ maps and then generate new platformer maps based on the samples.
 * A Windows program [installer](/Installer) that can wrap up a compressed archive inside an executable that
 can extract itself.
 
-* A [DOS commandline messagebox](/Dos%20Msgbox) (with mouse support)
+* A [DOS commandline messagebox](/Dos%20Msgbox) (with terminal mouse support)
 
 * A really [weird sorting algorithm](/Sort)
 
