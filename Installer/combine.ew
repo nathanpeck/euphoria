@@ -1,0 +1,163 @@
+include win32lib.ew
+include database.e
+include lzss.e
+
+without warning
+
+procedure crash(sequence txt)
+    puts(1,txt)
+    while get_key() = -1 do
+	
+    end while
+    abort(-1)
+end procedure
+
+procedure progress(integer extent, integer pos, sequence name)
+    
+end procedure
+
+function overwrite(sequence name)
+    return 1
+end function
+
+global integer error
+global integer progress_id
+global integer overwrite_id
+
+error = routine_id("crash")
+progress_id = routine_id("progress")
+overwrite_id = routine_id("overwrite")
+
+global sequence data
+
+data = {}
+
+function read_file(sequence name)
+    integer fn,c
+    sequence chars
+    
+    chars = {}
+    c = 1
+    fn = open(name,"rb")
+    
+    while c = 1 do
+	c = getc(fn)
+	if c = -1 then
+	    
+	else
+	    chars = append(chars,c)
+	    c = 1
+	end if
+    end while
+    
+    return chars
+end function
+
+global procedure add_file(integer package, sequence name)
+    data[package][2] = append(data[package][2],{name,read_file(name)})
+end procedure
+
+global procedure add_package(sequence name)
+    data = append(data,{name,{}})
+end procedure
+
+global procedure save_install(sequence name)
+    integer fn
+    
+    fn = db_create("tmp.tmp",DB_LOCK_NO)
+    
+    if fn != DB_OK then
+	call_proc(error,{"Unable to create main installation database!"})
+    end if
+    
+    for package = 1 to length(data) do
+	if db_create_table(data[package][1]) = DB_OK then
+	    for file = 1 to length(data[package][2]) do
+		if db_insert(data[package][2][file][1],data[package][2][file][2]) = DB_OK then
+		    --Everything went well!
+		else
+		    call_proc(error,{"Critical adding file: "&data[package][2][file][1]&"  in package: "&data[package][1]})
+		end if
+	    end for
+	else
+	    call_proc(error,{"Critical error creating package: "&data[package][1]})
+	end if
+    end for
+    
+    Encode("tmp.tmp",name)
+
+    db_close()
+
+    if deleteFile(Current_Directory()&"\\tmp.tmp") then end if
+    
+end procedure
+
+global procedure load_install(sequence name)
+    integer fn
+    sequence packages
+    sequence d
+    
+    data = {}
+    
+    Decode(name,"tmp.tmp")
+	
+    fn = db_open("tmp.tmp",DB_LOCK_NO)
+    
+    if fn != DB_OK then
+	call_proc(error,"Unable to open file provided!")
+    end if
+    
+    packages = db_table_list()
+    
+    for package = 1 to length(packages) do
+	data = append(data,{packages[package],{}})
+	if db_select_table(packages[package]) = DB_OK then
+	    for file = 1 to db_table_size() do
+		d = {0,0}
+		d[1] = db_record_key(file)
+		d[2] = db_record_data(file)
+		data[package][2] = append(data[package][2],d)
+	    end for
+	end if
+    end for
+    
+    db_close()
+    
+    if deleteFile(Current_Directory()&"\\tmp.tmp") then end if
+end procedure
+
+global procedure do_install(sequence path,sequence to_do)
+    integer fn
+    for package = 1 to length(data) do
+	call_proc(progress_id,{length(data),package,data[package][1]})
+	if to_do[package] = 1 then
+	    for file = 1 to length(data[package][2]) do
+		fn = open(path&data[package][2][file][1],"r")
+		if fn = -1 then
+		    fn = open(path&data[package][2][file][1],"wb")
+		    if fn = -1 then
+			call_proc(error,"Unable to open and write to an install file!")
+		    end if
+		    for c = 1 to length(data[package][2][file][2]) do
+			puts(fn,data[package][2][file][2][c])
+		    end for
+		    close(fn)
+		    call_proc(progress_id,{length(data[package][2]),file,data[package][2][file][1]})
+		else
+		    if call_func(overwrite_id,{path&data[package][2][file][1]}) = 1 then
+			fn = open(path&data[package][2][file][1],"wb")
+			if fn = -1 then
+			    call_proc(error,"Unable to open and write to an install file!")
+			end if
+			for c = 1 to length(data[package][2][file][2]) do
+			    puts(fn,data[package][2][file][2][c])
+			end for
+			close(fn)
+			call_proc(progress_id,{length(data[package][2]),file,data[package][2][file][1]})
+		    end if
+		end if
+	    end for
+	    else --do nothing
+	end if
+    end for
+end procedure

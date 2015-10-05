@@ -1,0 +1,11 @@
+This folder should contain:
+
+files.txt	- This packing list.
+Elfin.txt	- The instruction manual.
+Elfin.e		- The library file for Euphoria.
+Elfin.dat	- The keybox data file.
+Generate.ex	- Program for generating new copies of Elfin.dat
+Vbe20.txt	- The big, long manual used by the encryption demo.
+		  Just pretend it contains trademark secrets!
+Demo.ex		- A demo of how to use Elfin, as well as a sanity
+		  and speed check.

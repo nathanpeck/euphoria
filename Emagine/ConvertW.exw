@@ -1,0 +1,181 @@
+include image.e
+include get.e
+include file.e
+
+--Bitmap I/O operations
+atom mem0, mem1, mem2, mem3
+sequence memseq
+mem0 = allocate(4)
+mem1 = mem0 + 1
+mem2 = mem0 + 2
+mem3 = mem0 + 3
+memseq = {mem0, 4}
+
+----------------------------------------------------------
+--These two functions are modifications on database.e's---
+function get4bmp(integer where)                         --
+    poke(mem0, getc(where))                             --  
+    poke(mem1, getc(where))                             --
+    poke(mem2, getc(where))                             --
+    poke(mem3, getc(where))                             --
+    return peek4u(mem0)                                 --
+end function                                            --
+							--
+procedure puts4bmp(atom where,atom x)                   --
+    poke4(mem0, x) -- faster than doing divides etc.    --
+    puts(where, peek(memseq))                           --
+end procedure                                           --
+							--
+----------------------------------------------------------
+
+
+--Load an image
+global function load_img(sequence name)
+    sequence result
+    atom char
+    atom fn
+    atom x5
+    atom y5
+    fn = open(name,"r")
+    if fn = -1 then
+	return fn
+    end if
+    char = getc(fn)
+    if char = 'I' then --This part...
+	char = getc(fn)
+	if char = 'M' then --...checks to see...
+	    char = getc(fn)
+	    if char = 'G' then --...if its an img file.
+		y5 = get4bmp(fn)
+		x5 = get4bmp(fn)
+		result = repeat(repeat(0,x5),y5)
+		for y = 1 to y5 do
+		    for x = 1 to x5 do
+			result[y][x] = getc(fn)
+		    end for
+		end for
+	    else return -1
+	    end if
+	else return -1
+	end if
+    else return -1
+    end if
+    close(fn)
+    return result
+end function
+
+--Load a palette
+global function load_pal(sequence name,integer num)
+    sequence success
+    atom char
+    atom fn
+    sequence current_rgb
+    current_rgb = {}
+    success = {}
+    fn = open(name,"r")
+    if fn = -1 then
+	return fn
+    end if
+    char = getc(fn)
+    if char = 'P' then
+	char = getc(fn)
+	if char = 'A' then
+	    char = getc(fn)
+	    if char = 'L' then
+		for color = 3 to (256*3)+3 by 3 do
+		    for rgb = 1 to 3 do
+			char = seek(fn,color+rgb-num)
+			if char = -1 then
+			    return char
+			end if
+			char = getc(fn)
+			current_rgb = append(current_rgb,char)
+			if rgb = 3 then
+			    success = append(success,current_rgb)
+			    current_rgb = {}
+			end if
+		    end for
+		end for
+	    else return -1
+	    end if
+	else return -1
+	end if
+    else return -1
+    end if
+    close(fn)
+    for counter = 1 to 256 do
+	for rgb = 1 to 3 do
+	    if success[counter][rgb] = -1 then
+		success[counter][rgb] = 0
+	    end if
+	end for
+    end for
+    return success
+end function
+
+--Save a palette
+global procedure save_pal(sequence pal, sequence name)
+    atom fn
+    fn = open(name,"w")
+    if fn = -1 then
+	return --Error
+    else
+	puts(fn,"PAL")
+	for color = 1 to length(pal) do
+	    for rgb = 1 to 3 do
+		puts(fn,pal[color][rgb])
+	    end for
+	end for
+    end if
+    close(fn)
+end procedure
+
+--Save an image
+global procedure save_img(sequence img, sequence name)
+    atom fn
+    fn = open(name,"w")
+    if fn = -1 then
+	return --Error
+    else
+	puts(fn,"IMG")
+	puts4bmp(fn,length(img))
+	puts4bmp(fn,length(img[1]))
+	for y = 1 to length(img) do
+	    for x = 1 to length(img[1]) do
+		puts(fn,img[y][x])
+	    end for
+	end for
+    end if
+    close(fn)
+end procedure
+
+sequence name1,name2
+integer fn1
+
+name1 = prompt_string("Please enter the name of the bmp to convert: ")
+
+fn1 = open(name1,"r")
+if fn1 = -1 then
+    puts(1,"\nFile is non-existant!")
+    abort(-1)
+end if
+
+name2 = prompt_string("Please enter the name of the resulting img: ")
+
+object data
+
+data = read_bitmap(name1)
+
+if atom(data) then
+    puts(1,"\nCritical error opening bmp!\n")
+    if data = BMP_UNSUPPORTED_FORMAT then
+	puts(1,"You can only use 256 color bmps")
+    end if
+    abort(-1)
+end if
+
+save_pal(data[1],"img.pal")
+save_img(data[2],name2)
+
+
+

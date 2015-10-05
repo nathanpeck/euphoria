@@ -1,0 +1,125 @@
+constant name = "demo.dat"
+
+without warning
+
+include Win32lib.ew
+include browsdir.ew
+include combine.ew
+
+integer overwrite_flag
+sequence p
+sequence package_ids
+
+function ask(sequence name)
+	if overwrite_flag = 1 then
+		return 1
+	else
+		if message_box("Do you want to overwrite the file: "&name&"?","Overwrite?",MB_YESNO+MB_ICONQUESTION) = IDYES then
+			return 1
+		else
+			return -1
+		end if
+	end if
+end function
+
+overwrite_id = routine_id("ask")
+
+load_install(name)
+
+package_ids = {}
+
+p = {}
+
+for package = 1 to length(data) do
+	p = append(p,data[package][1])
+end for
+
+--Open name and process it here
+
+constant MainWin    = createEx(Window,"Installation wizard",0,Default,Default,209,317,{WS_SYSMENU},{WS_DLGFRAME}),
+		 begin      = createEx(PushButton,"Begin",MainWin,0,260,100,28,0,0),
+		 cancel     = createEx(PushButton,"Cancel",MainWin,100,260,100,28,0,0),
+		 overwrite  = createEx(CheckBox,"Overwrite without prompt?",MainWin,0,236,148,20,0,0),
+		 packages   = createEx(ListView,{"List of Packages"},MainWin,0,36,200,200,or_all({LVS_REPORT,LVS_SHOWSELALWAYS}),0)
+
+setHint(begin,"Click here to begin installing the selected packages.")
+setHint(cancel,"Click here to quit without installing")
+setHint(overwrite,"Select this if you want to overwrite duplicate files without being asked.")
+setHint(packages,"Click the checkboxes of the packages you want installed.")
+
+constant icon = addIcon(extractIcon("package.ico"))
+constant install = extractIcon("C:\\windows\\system\\msiexec.exe")
+
+atom lvMask
+integer lvOk
+
+lvMask = or_all({LVS_EX_CHECKBOXES})
+lvOk = sendMessage(packages,LVM_SETEXTENDEDLISTVIEWSTYLE,lvMask,lvMask)
+
+setColumn(packages,1,{"List of Packages",400,-1})
+
+setIcon(MainWin,install)
+
+constant LText10 = createEx(LText,"Please select the packages to install.",MainWin,0,4,200,24,0,0)
+
+procedure begin_click(object a, object b, object c)
+	object ret,i,to_do
+	
+	to_do = repeat(0,length(p))
+
+	overwrite_flag = isChecked(overwrite)   
+	
+	i = 0   
+
+	for counter = 1 to length(p) do
+		if getLVChecked(packages,counter) = 1 then
+			i = 1
+			to_do[counter] = 1
+		else
+			--Do nothing
+		end if
+	end for
+
+	if i = 0 then
+		if message_box("Nothing to install.  No packages are selected!","Error!",MB_ICONERROR) then
+			
+		end if
+		return
+	end if  
+
+	ret = getFolder(MainWin," ","Please select a folder to which the files will be installed.")
+	
+	if compare(ret,"") = 0 then
+		return
+	end if
+
+	ret = append(ret,'\\')  
+
+	do_install(ret,to_do)
+	
+	abort(1)
+end procedure
+
+procedure ending(object a, object b, object c)
+	integer id
+	id = message_box("Do you really want to quit?","Close?",MB_YESNO+MB_ICONQUESTION)
+	if id = IDYES then
+		--Continue, and destroy the window      
+	else
+		returnValue(1)  --Don't close
+	end if
+end procedure
+
+procedure close_window(object a, object b, object c)
+	closeWindow(MainWin)
+end procedure
+
+setHandler(begin,w32HClick,routine_id("begin_click"))
+setHandler(cancel,w32HClick,routine_id("close_window"))
+setHandler(MainWin,w32HClose,routine_id("ending"))
+
+for counter = 1 to length(p) do
+	package_ids = append(package_ids,addLVItem(packages,icon,p[counter]))
+end for
+
+WinMain(MainWin,Normal)

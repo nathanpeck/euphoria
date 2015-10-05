@@ -1,0 +1,53 @@
+include win32lib.ew
+
+constant xSHBrowseForFolder = 
+registerw32Function(shell32, "SHBrowseForFolderA", {C_POINTER}, C_POINTER)
+
+constant xSHGetPathFromIDList =
+registerw32Function(shell32,"SHGetPathFromIDList",{C_ULONG,C_POINTER},C_ULONG)
+
+function callbackselect(atom hWnd, atom uMsg, atom lParam, atom lpData)
+object x
+	if uMsg = 1 then
+		x = w32Func(xSendMessage, {hWnd, 1126, 1, lpData})
+	end if
+	return 0
+end function
+
+global function getFolder(atom id, sequence filename, sequence title)
+object bi, pbi, ret, folder, pfolder
+	if length(filename)=2 and filename[2]=':' then
+		filename &= '\\'
+	elsif filename[length(filename)] = '\\' then
+		filename = filename[1..length(filename)-1]
+	end if
+	bi = {0,0,0,0,         --  hwndOwner = 1
+	      0,0,0,0,         --  pIDLRoot = 5
+	      0,0,0,0,         --  pszDisplayName = 9
+	      0,0,0,0,         --  lpszTitle = 13
+	      0,0,0,0,         --  ulFlags = 17
+	      0,0,0,0,         --  lpfnCallback = 21
+	      0,0,0,0,         --  lParam = 25
+	      0,0,0,0}         --  iImage = 29
+	bi[1..4] = int_to_bytes(getHandle(id))
+	bi[13..16] = int_to_bytes(allocate_string(title))
+	bi[17..20] = int_to_bytes(1)
+	bi[21..24] = int_to_bytes(call_back(routine_id("callbackselect")))
+	bi[25..28] = int_to_bytes(allocate_string(filename))
+	pbi = allocate(length(bi))
+	poke(pbi, bi)
+	ret = w32Func(xSHBrowseForFolder, {pbi})
+	free(bytes_to_int(bi[13..16]))
+	free(bytes_to_int(bi[21..24]))
+	free(bytes_to_int(bi[25..28]))
+	free(pbi)
+	
+	pfolder = allocate(256)
+	if w32Func(xSHGetPathFromIDList,{ret,pfolder}) then
+		folder = peek_string(pfolder)
+	else
+		folder = ""
+	end if
+	free(pfolder)
+	return folder
+end function

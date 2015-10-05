@@ -1,0 +1,1 @@
+This is a message box library that uses Colin Taylor's UI.
